@@ -184,7 +184,7 @@ async function postQuoteToServer(quote) {
 }
 
 // Sync local quotes with server
-async function syncWithServer() {
+async function syncQuotes() {
   const serverQuotes = await fetchQuotesFromServer();
   if (!serverQuotes.length) return;
   // Conflict resolution: server wins
@@ -236,14 +236,14 @@ function manualResolveConflict() {
     saveQuotes();
     showNotification('Local quotes kept.');
   } else {
-    syncWithServer();
+    syncQuotes();
   }
 }
 
 // Start periodic sync
 function startServerSync() {
   if (syncInterval) clearInterval(syncInterval);
-  syncInterval = setInterval(syncWithServer, 30000); // 30 seconds
+  syncInterval = setInterval(syncQuotes, 30000); // 30 seconds
 }
 
 // Set up event listeners and initial UI
@@ -258,6 +258,6 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('exportQuotes').addEventListener('click', exportQuotesToJson);
   document.getElementById('importFile').addEventListener('change', importFromJsonFile);
   // Initial sync and start periodic sync
-  syncWithServer();
+  syncQuotes();
   startServerSync();
 });
