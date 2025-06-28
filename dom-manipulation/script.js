@@ -2,6 +2,10 @@
 let quotes = [];
 let selectedCategory = 'all';
 
+const SERVER_API_URL = 'https://jsonplaceholder.typicode.com/posts'; // Simulated endpoint
+let syncInterval = null;
+let lastServerSync = null;
+
 // Load quotes from localStorage if available
 function loadQuotes() {
   const stored = localStorage.getItem('quotes');
@@ -147,6 +151,101 @@ function importFromJsonFile(event) {
   fileReader.readAsText(event.target.files[0]);
 }
 
+// Fetch quotes from the server (simulate)
+async function fetchQuotesFromServer() {
+  try {
+    const response = await fetch(SERVER_API_URL);
+    if (!response.ok) throw new Error('Server error');
+    // Simulate server quotes as an array of objects with text and category
+    const serverData = await response.json();
+    // We'll use the first 10 posts as quotes for simulation
+    const serverQuotes = serverData.slice(0, 10).map(post => ({
+      text: post.title,
+      category: 'Server'
+    }));
+    return serverQuotes;
+  } catch (e) {
+    console.error('Failed to fetch from server:', e);
+    return [];
+  }
+}
+
+// Post a new quote to the server (simulate)
+async function postQuoteToServer(quote) {
+  try {
+    await fetch(SERVER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quote)
+    });
+  } catch (e) {
+    console.error('Failed to post to server:', e);
+  }
+}
+
+// Sync local quotes with server
+async function syncWithServer() {
+  const serverQuotes = await fetchQuotesFromServer();
+  if (!serverQuotes.length) return;
+  // Conflict resolution: server wins
+  let localChanged = false;
+  const localQuotesStr = JSON.stringify(quotes);
+  const serverQuotesStr = JSON.stringify(serverQuotes);
+  if (localQuotesStr !== serverQuotesStr) {
+    quotes = serverQuotes;
+    saveQuotes();
+    populateCategories();
+    filterQuotes();
+    showNotification('Quotes updated from server. Server data took precedence.');
+    localChanged = true;
+  }
+  lastServerSync = Date.now();
+  return localChanged;
+}
+
+// Notification UI
+function showNotification(message) {
+  let notif = document.getElementById('serverNotification');
+  if (!notif) {
+    notif = document.createElement('div');
+    notif.id = 'serverNotification';
+    notif.style.position = 'fixed';
+    notif.style.top = '10px';
+    notif.style.right = '10px';
+    notif.style.background = '#ffd700';
+    notif.style.padding = '10px 20px';
+    notif.style.border = '1px solid #888';
+    notif.style.zIndex = 1000;
+    notif.style.borderRadius = '5px';
+    document.body.appendChild(notif);
+  }
+  notif.textContent = message + ' '; // Clear previous
+  // Add manual resolve button
+  const btn = document.createElement('button');
+  btn.textContent = 'Manual Resolve';
+  btn.onclick = manualResolveConflict;
+  notif.appendChild(btn);
+  setTimeout(() => {
+    if (notif.parentNode) notif.parentNode.removeChild(notif);
+  }, 8000);
+}
+
+// Manual conflict resolution UI (simple: alert with choice)
+function manualResolveConflict() {
+  if (confirm('Keep local quotes instead of server data?')) {
+    saveQuotes();
+    showNotification('Local quotes kept.');
+  } else {
+    syncWithServer();
+  }
+}
+
+// Start periodic sync
+function startServerSync() {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(syncWithServer, 30000); // 30 seconds
+}
+
 // Set up event listeners and initial UI
 document.addEventListener('DOMContentLoaded', function() {
   loadQuotes();
@@ -158,4 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
   createAddQuoteForm();
   document.getElementById('exportQuotes').addEventListener('click', exportQuotesToJson);
   document.getElementById('importFile').addEventListener('change', importFromJsonFile);
+  // Initial sync and start periodic sync
+  syncWithServer();
+  startServerSync();
 });
