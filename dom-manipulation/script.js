@@ -198,6 +198,8 @@ async function syncQuotes() {
     filterQuotes();
     showNotification('Quotes updated from server. Server data took precedence.');
     localChanged = true;
+  } else {
+    showNotification('Quotes synced with server!');
   }
   lastServerSync = Date.now();
   return localChanged;
